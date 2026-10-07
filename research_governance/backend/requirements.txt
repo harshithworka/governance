@@ -1,0 +1,26 @@
+# GovDesk backend — Phase 1
+# AGT governance is imported from the local checkout (agent-mesh/src on sys.path),
+# so agent-governance-toolkit-core is optional here. These are the app deps.
+
+fastapi>=0.142,<1.0
+uvicorn[standard]>=0.54,<1.0
+pydantic>=2.13,<3.0
+python-dotenv>=1.0,<2.0
+
+# Orchestration
+langgraph>=0.2,<1.0
+
+# LLM + research + market data (live when keys are set in .env)
+groq>=0.37,<1.0
+google-generativeai>=0.8,<1.0
+tavily-python>=0.8,<1.0
+httpx>=0.28,<1.0
+
+# Phase 6: governed intake + RAG over NSE annual reports
+chromadb>=1.5,<2.0
+pypdf>=6.0,<7.0
+pandas>=2.0
+requests>=2.31
+
+# AGT core is pulled from the local source tree via sys.path (see app/config.py).
+# If you prefer the published package instead, also:  pip install agent-governance-toolkit-core

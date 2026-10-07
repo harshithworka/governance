@@ -1,0 +1,24 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+# Policy for the Risk Officer agent: evaluates proposals against hard limits.
+# Blocks oversized trades and blocked instruments outright.
+apiVersion: governance.toolkit/v1
+name: risk-officer-policy
+description: Risk Officer — enforce hard trade limits and instrument blocklist.
+agents: ["*"]
+default_action: deny
+rules:
+  - name: block-blocked-instruments
+    condition: "action.type == 'assess_trade' and action.instrument in ['SHELL_CO', 'OTC_PENNY', 'SANCTIONED']"
+    action: deny
+    description: "Instrument is on the blocklist."
+
+  - name: block-oversized
+    condition: "action.type == 'assess_trade' and action.amount > 250000"
+    action: deny
+    description: "Trade exceeds the absolute maximum (250,000)."
+
+  - name: allow-assessment
+    condition: "action.type == 'assess_trade'"
+    action: allow
+    description: "Assessment within limits is permitted."

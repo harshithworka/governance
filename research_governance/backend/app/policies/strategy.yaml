@@ -1,0 +1,24 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+# Policy for the Strategy agent: may read research/data and draft proposals;
+# must never execute or approve trades.
+apiVersion: governance.toolkit/v1
+name: strategy-agent-policy
+description: Strategy agent — draft proposals only, never execute or approve.
+agents: ["*"]
+default_action: deny
+rules:
+  - name: allow-read-data
+    condition: "action.type in ['read_market_data', 'read_research']"
+    action: allow
+    description: "Read research and market data."
+
+  - name: allow-draft-proposal
+    condition: "action.type == 'draft_proposal'"
+    action: allow
+    description: "Draft a trade proposal for the risk officer."
+
+  - name: block-execute-approve
+    condition: "action.type in ['place_trade', 'approve_trade', 'execute_code']"
+    action: deny
+    description: "Strategy agent cannot execute or approve trades."

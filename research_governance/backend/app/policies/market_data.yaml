@@ -1,0 +1,26 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+# Policy for the Market-Data agent: may read market data from approved
+# sources; must not reach arbitrary hosts, execute, or trade.
+apiVersion: governance.toolkit/v1
+name: market-data-agent-policy
+description: Market-Data agent — read approved data sources only.
+agents: ["*"]
+default_action: deny
+rules:
+  - name: allow-read-data
+    condition: "action.type == 'read_market_data'"
+    action: allow
+    description: "Fetch quotes/fundamentals from approved sources."
+    limit: "120/hour"
+
+  - name: allow-alphavantage-fallback
+    condition: "action.type == 'read_alphavantage'"
+    action: allow
+    description: "Alpha Vantage fallback (strict daily cap)."
+    limit: "25/day"
+
+  - name: block-execution
+    condition: "action.type in ['execute_code', 'shell', 'write_file', 'place_trade']"
+    action: deny
+    description: "Market-Data agent cannot execute, write, or trade."

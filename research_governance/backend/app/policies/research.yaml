@@ -1,0 +1,25 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+# Policy for the Research agent: may search/read external info; must not
+# execute code, write files, or place trades.
+apiVersion: governance.toolkit/v1
+name: research-agent-policy
+description: Research agent — web/news search only, no execution or writes.
+agents: ["*"]
+default_action: deny
+rules:
+  - name: allow-web-search
+    condition: "action.type == 'web_search'"
+    action: allow
+    description: "Web/news search via Tavily is permitted."
+    limit: "60/hour"
+
+  - name: allow-read-data
+    condition: "action.type == 'read_market_data'"
+    action: allow
+    description: "Reading market data is permitted."
+
+  - name: block-execution
+    condition: "action.type in ['execute_code', 'shell', 'write_file', 'place_trade']"
+    action: deny
+    description: "Research agent cannot execute, write, or trade."

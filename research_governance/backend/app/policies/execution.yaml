@@ -1,0 +1,28 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+# Policy for the Execution agent: places trades below a threshold; anything
+# at/above the threshold requires human approval; destructive ops blocked.
+# NOTE: numeric rules are guarded by action.type so a missing `amount` on a
+# non-trade action cannot trip them (AGT fails closed on absent fields).
+apiVersion: governance.toolkit/v1
+name: execution-agent-policy
+description: Execution agent — small trades allowed, large trades need approval.
+agents: ["*"]
+default_action: deny
+rules:
+  - name: block-destructive
+    condition: "action.type in ['drop', 'delete', 'truncate', 'shell', 'execute_code']"
+    action: deny
+    description: "Destructive operations are never allowed."
+
+  - name: require-approval-large-trade
+    condition: "action.type == 'place_trade' and action.amount > 100000"
+    action: require_approval
+    description: "Trades at or above 100,000 require human sign-off."
+    approvers: ["risk-desk"]
+
+  - name: ratelimit-trades
+    condition: "action.type == 'place_trade'"
+    action: allow
+    description: "Small trades are allowed, capped per hour."
+    limit: "20/hour"
