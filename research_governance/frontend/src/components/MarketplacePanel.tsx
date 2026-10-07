@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { PluginVetting } from "../lib/types";
 
+const StoreIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 9l1.5-5h15L21 9M4 9h16v10a1 1 0 01-1 1H5a1 1 0 01-1-1V9zM3 9a3 3 0 006 0 3 3 0 006 0 3 3 0 006 0" />
+  </svg>
+);
+
 export default function MarketplacePanel() {
   const [items, setItems] = useState<PluginVetting[]>([]);
   const [busy, setBusy] = useState(false);
@@ -23,8 +29,11 @@ export default function MarketplacePanel() {
 
   return (
     <div className="panel">
-      <div className="row spread" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Marketplace vetting</h2>
+      <div className="panel-head">
+        <h2 className="panel-title">
+          <span className="panel-ico"><StoreIcon /></span>
+          Marketplace vetting
+        </h2>
         <button className="ghost" onClick={vet} disabled={busy}>
           {busy ? "Vetting…" : "Re-vet catalog"}
         </button>
@@ -66,8 +75,11 @@ export default function MarketplacePanel() {
           ))}
           {items.length === 0 && (
             <tr>
-              <td colSpan={6} className="muted">
-                No vettings yet. Click "Re-vet catalog".
+              <td colSpan={6}>
+                <div className="empty-state">
+                  <span className="empty-ico"><StoreIcon /></span>
+                  <p>No vettings yet. Click "Re-vet catalog".</p>
+                </div>
               </td>
             </tr>
           )}

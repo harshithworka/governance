@@ -94,4 +94,14 @@ export const api = {
   marketplace: () => get<{ items: PluginVetting[] }>("/api/governance/marketplace"),
   marketplaceVet: () =>
     post<{ vetted: number; items: PluginVetting[] }>("/api/governance/marketplace/vet"),
+
+  // Demo threat-injection controls (presenter tooling for the POC walkthrough).
+  addRiskyMcpTool: () =>
+    post<{ ok?: boolean; [k: string]: unknown }>("/api/governance/demo/mcp-tool"),
+  addHarmfulAgent: () =>
+    post<{ ok?: boolean; [k: string]: unknown }>("/api/governance/demo/shadow-agent"),
+  tamperAudit: () =>
+    post<{ tampered?: boolean; [k: string]: unknown }>("/api/governance/demo/tamper-audit"),
+  resetDemo: () =>
+    post<{ ok?: boolean; [k: string]: unknown }>("/api/governance/demo/reset"),
 };

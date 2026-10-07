@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import app.config  # noqa: F401
+from agent_compliance.prompt_defense import PromptDefenseEvaluator
 from agent_os.credential_redactor import CredentialRedactor
 from agent_os.prompt_injection import PromptInjectionDetector, ThreatLevel
 
@@ -60,6 +61,14 @@ class IntakeResult:
     company: str | None = None
     symbol: str | None = None
     block_reason: str | None = None
+    # Prompt-defense posture of the submitted (PII-redacted) text, graded against
+    # the 17 OWASP LLM/Agentic defense vectors. Informational only — never gates
+    # the run. A normal user query grades low (D/F) by design.
+    defense_grade: str = ""
+    defense_score: int = 0
+    defense_total: int = 0
+    defense_missing: list[str] = field(default_factory=list)
+    defense_top_findings: list[dict] = field(default_factory=list)
 
 
 class Intake:
@@ -68,6 +77,7 @@ class Intake:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             self._injection = PromptInjectionDetector()
+            self._defense = PromptDefenseEvaluator()
         self._nse_df = None  # lazy-loaded NSE equity master
 
     # -- PII redaction ----------------------------------------------------
@@ -121,6 +131,51 @@ class Intake:
     def _scan_injection(self, text: str):
         return self._injection.detect(text)
 
+    # -- prompt-defense posture ------------------------------------------
+    def _defense_grade(self, text: str) -> dict[str, Any]:
+        """Grade the (clean) text against the 17 OWASP defense vectors.
+
+        Pure static analysis, informational only. Guarded so a failure never
+        breaks intake — on error, callers keep the safe defaults.
+        """
+        out: dict[str, Any] = {
+            "defense_grade": "",
+            "defense_score": 0,
+            "defense_total": 0,
+            "defense_missing": [],
+            "defense_top_findings": [],
+        }
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                report = self._defense.evaluate(text)
+            out["defense_grade"] = report.grade
+            out["defense_score"] = report.score
+            out["defense_total"] = report.total
+            out["defense_missing"] = list(report.missing)
+
+            findings = getattr(report, "findings", None) or []
+            top: list[dict] = []
+            for f in findings:
+                if getattr(f, "defended", True):
+                    continue
+                top.append({
+                    "vector_id": getattr(f, "vector_id", ""),
+                    "name": getattr(f, "name", ""),
+                    "owasp": getattr(f, "owasp", ""),
+                    "severity": getattr(f, "severity", ""),
+                })
+                if len(top) >= 6:
+                    break
+            if not top:
+                # Fall back to the plain missing list if findings aren't rich.
+                top = [{"vector_id": vid, "name": "", "owasp": "", "severity": ""}
+                       for vid in out["defense_missing"][:6]]
+            out["defense_top_findings"] = top
+        except Exception:
+            pass
+        return out
+
     # -- NSE symbol resolution -------------------------------------------
     def _load_nse(self):
         if self._nse_df is not None:
@@ -170,6 +225,10 @@ class Intake:
         with self._lock:
             clean, redactions = self._redact(query)
 
+            # Grade the clean (PII-redacted) text's prompt-defense posture.
+            # Informational only — never fed raw PII, never gates the run.
+            defense = self._defense_grade(clean)
+
             det = self._scan_injection(query)
             threat = getattr(det.threat_level, "value", "none")
             blocked = det.is_injection and det.threat_level in _BLOCK_LEVELS
@@ -184,6 +243,7 @@ class Intake:
                     injection_reason=det.explanation,
                     injection_patterns=list(det.matched_patterns),
                     block_reason=f"Prompt injection detected ({threat}): {det.explanation}",
+                    **defense,
                 )
 
             company = self._llm_company(clean)
@@ -199,6 +259,7 @@ class Intake:
                 injection_patterns=list(det.matched_patterns),
                 company=company,
                 symbol=symbol,
+                **defense,
             )
 
 

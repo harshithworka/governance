@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { ShadowAgent } from "../lib/types";
 
+const RadarIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 12l6-4" />
+  </svg>
+);
+
 export default function ShadowDiscoveryPanel() {
   const [agents, setAgents] = useState<ShadowAgent[]>([]);
   const [busy, setBusy] = useState(false);
@@ -25,10 +31,13 @@ export default function ShadowDiscoveryPanel() {
 
   return (
     <div className="panel">
-      <div className="row spread" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Shadow AI discovery</h2>
-        <div className="row">
-          <span className="muted" style={{ fontSize: 12 }}>
+      <div className="panel-head">
+        <h2 className="panel-title">
+          <span className="panel-ico"><RadarIcon /></span>
+          Shadow AI discovery
+        </h2>
+        <div className="panel-head-actions">
+          <span className="panel-meta">
             {shadows.length} shadow · {agents.length - shadows.length} registered
           </span>
           <button className="ghost" onClick={rescan} disabled={busy}>
@@ -65,7 +74,7 @@ export default function ShadowDiscoveryPanel() {
                   {a.risk_level} {a.risk_score}
                 </span>
               </td>
-              <td className="muted" style={{ fontSize: 12 }}>
+              <td className="muted cell-wrap" style={{ fontSize: 12 }}>
                 {a.status === "shadow"
                   ? (a.recommended[0] ?? a.factors.join("; "))
                   : "governed"}
@@ -74,8 +83,11 @@ export default function ShadowDiscoveryPanel() {
           ))}
           {agents.length === 0 && (
             <tr>
-              <td colSpan={5} className="muted">
-                No discovery results yet. Click "Re-scan".
+              <td colSpan={5}>
+                <div className="empty-state">
+                  <span className="empty-ico"><RadarIcon /></span>
+                  <p>No discovery results yet. Click "Re-scan".</p>
+                </div>
               </td>
             </tr>
           )}

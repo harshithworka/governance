@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { IntakeEvent } from "../lib/types";
 
+const FilterIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 5h18l-7 8v6l-4 2v-8L3 5z" />
+  </svg>
+);
+
 export default function IntakePanel() {
   const [events, setEvents] = useState<IntakeEvent[]>([]);
 
@@ -17,9 +23,12 @@ export default function IntakePanel() {
 
   return (
     <div className="panel">
-      <div className="row spread" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Governed intake</h2>
-        <span className="muted" style={{ fontSize: 12 }}>
+      <div className="panel-head">
+        <h2 className="panel-title">
+          <span className="panel-ico"><FilterIcon /></span>
+          Governed intake
+        </h2>
+        <span className="panel-meta">
           {blocked} blocked · {redactedTotal} PII item(s) redacted
         </span>
       </div>
@@ -41,7 +50,7 @@ export default function IntakePanel() {
           {events.map((e) => (
             <tr key={e.intake_id}>
               <td className="muted mono">{new Date(e.timestamp * 1000).toLocaleTimeString()}</td>
-              <td className="muted" style={{ maxWidth: 240 }}>{e.clean_query}</td>
+              <td className="muted cell-truncate" title={e.clean_query}>{e.clean_query}</td>
               <td>
                 <span className={`badge ${e.injection_detected ? "deny" : "allow"}`}>
                   {e.injection_detected ? e.injection_threat : "clean"}
@@ -53,7 +62,12 @@ export default function IntakePanel() {
           ))}
           {events.length === 0 && (
             <tr>
-              <td colSpan={5} className="muted">No intake events yet. Submit a request on the Desk page.</td>
+              <td colSpan={5}>
+                <div className="empty-state">
+                  <span className="empty-ico"><FilterIcon /></span>
+                  <p>No intake events yet. Submit a request on the Desk page.</p>
+                </div>
+              </td>
             </tr>
           )}
         </tbody>
