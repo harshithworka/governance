@@ -2,6 +2,13 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { BreakerRow, RingRow, RuntimeEvent } from "../lib/types";
 
+const CpuIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="7" y="7" width="10" height="10" rx="1" />
+    <path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" />
+  </svg>
+);
+
 export default function RuntimePanel() {
   const [ringsData, setRings] = useState<RingRow[]>([]);
   const [breakers, setBreakers] = useState<BreakerRow[]>([]);
@@ -27,8 +34,11 @@ export default function RuntimePanel() {
 
   return (
     <div className="panel">
-      <div className="row spread" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Runtime hardening</h2>
+      <div className="panel-head">
+        <h2 className="panel-title">
+          <span className="panel-ico"><CpuIcon /></span>
+          Runtime hardening
+        </h2>
         <button className="ghost" onClick={egress}>
           Simulate egress attempt (curl)
         </button>
@@ -44,7 +54,7 @@ export default function RuntimePanel() {
 
       <div className="grid cols-2">
         <div>
-          <h2 style={{ fontSize: 13 }}>Execution rings</h2>
+          <h2 className="subhead">Execution rings</h2>
           <table>
             <thead>
               <tr>
@@ -70,7 +80,7 @@ export default function RuntimePanel() {
         </div>
 
         <div>
-          <h2 style={{ fontSize: 13 }}>Circuit breakers</h2>
+          <h2 className="subhead">Circuit breakers</h2>
           {breakers.length === 0 && <p className="muted">No breaker activity yet.</p>}
           <table>
             <tbody>
@@ -103,7 +113,7 @@ export default function RuntimePanel() {
         </div>
       </div>
 
-      <h2 style={{ fontSize: 13, marginTop: 16 }}>Runtime events</h2>
+      <h2 className="subhead" style={{ marginTop: 16 }}>Runtime events</h2>
       <div style={{ maxHeight: 220, overflow: "auto" }}>
         <table>
           <tbody>
@@ -119,8 +129,11 @@ export default function RuntimePanel() {
             ))}
             {events.length === 0 && (
               <tr>
-                <td colSpan={4} className="muted">
-                  No runtime events yet.
+                <td colSpan={4}>
+                  <div className="empty-state">
+                    <span className="empty-ico"><CpuIcon /></span>
+                    <p>No runtime events yet.</p>
+                  </div>
                 </td>
               </tr>
             )}

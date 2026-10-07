@@ -38,6 +38,11 @@ from agent_discovery.risk import RiskScorer
 from app.governance.identities import all_agents
 from app.store import db
 
+#: Runtime-extendable rogue shadow observations injected by the demo controls
+#: (see app.governance.demo_controls). scan() ingests these alongside the
+#: planted _observe_shadows() set so the presenter can add shadows live.
+extra_shadow_observations: list[DiscoveredAgent] = []
+
 
 def _observe_governed() -> list[DiscoveredAgent]:
     """Observations for the real governed agents (they carry DIDs → registered)."""
@@ -97,7 +102,7 @@ class Discovery:
         """Run a discovery + reconciliation + risk-scoring pass; persist results."""
         with self._lock:
             inventory = AgentInventory()
-            observed = _observe_governed() + _observe_shadows()
+            observed = _observe_governed() + _observe_shadows() + list(extra_shadow_observations)
             inventory.ingest(ScanResult(scanner_name="govdesk-observer", agents=observed,
                                         scanned_targets=len(observed)))
 

@@ -172,6 +172,11 @@ export interface IntakeResult {
   company: string | null;
   symbol: string | null;
   block_reason: string | null;
+  defense_grade?: string;
+  defense_score?: number;
+  defense_total?: number;
+  defense_missing?: string[];
+  defense_top_findings?: { vector_id: string; name: string; owasp: string; severity: string }[];
 }
 
 export interface IntakeEvent extends IntakeResult {

@@ -550,6 +550,13 @@ def upsert_mcp_scan(
     return rec
 
 
+def delete_mcp_scan(tool_name: str) -> None:
+    """Remove the stored scan verdict for a tool (used when a demo-injected
+    tool is removed from the catalog so its stale verdict row doesn't linger)."""
+    with _LOCK:
+        get_conn().execute("DELETE FROM mcp_scans WHERE tool_name = ?;", (tool_name,))
+
+
 def list_mcp_scans() -> list[dict[str, Any]]:
     with _LOCK:
         rows = get_conn().execute(
@@ -709,6 +716,13 @@ def upsert_plugin_vetting(
                 1 if allowed else 0, notes,
             ),
         )
+
+
+def delete_plugin_vetting(tool_name: str) -> None:
+    """Remove the stored vetting for a tool (used when a demo-injected tool is
+    removed from the catalog so its stale vetting row doesn't linger)."""
+    with _LOCK:
+        get_conn().execute("DELETE FROM plugin_vettings WHERE tool_name = ?;", (tool_name,))
 
 
 def list_plugin_vettings() -> list[dict[str, Any]]:

@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { McpScan } from "../lib/types";
 
+const ShieldIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" /><path d="M9 12l2 2 4-4" />
+  </svg>
+);
+
 export default function SecurityPanel() {
   const [scans, setScans] = useState<McpScan[]>([]);
   const [busy, setBusy] = useState(false);
@@ -26,10 +32,13 @@ export default function SecurityPanel() {
 
   return (
     <div className="panel">
-      <div className="row spread" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>MCP tool security</h2>
-        <div className="row">
-          <span className="muted" style={{ fontSize: 12 }}>
+      <div className="panel-head">
+        <h2 className="panel-title">
+          <span className="panel-ico"><ShieldIcon /></span>
+          MCP tool security
+        </h2>
+        <div className="panel-head-actions">
+          <span className="panel-meta">
             {blocked} blocked · {flagged} flagged · {scans.length} tools
           </span>
           <button className="ghost" onClick={rescan} disabled={busy}>
@@ -84,8 +93,11 @@ export default function SecurityPanel() {
           ))}
           {scans.length === 0 && (
             <tr>
-              <td colSpan={4} className="muted">
-                No scans yet. Click "Re-scan catalog".
+              <td colSpan={4}>
+                <div className="empty-state">
+                  <span className="empty-ico"><ShieldIcon /></span>
+                  <p>No scans yet. Click "Re-scan catalog".</p>
+                </div>
               </td>
             </tr>
           )}

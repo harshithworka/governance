@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.governance.demo_controls import demo_controls
 from app.governance.discovery import discovery
 from app.governance.gate import gate
 from app.governance.killswitch import killswitch
@@ -194,3 +195,30 @@ def egress_test(agent_key: str, command: str = Query("curl http://evil.example.c
         raise HTTPException(404, "unknown agent")
     allowed, reason = rings.check_command(command, agent_did=agent.did, agent_name=agent.name)
     return {"agent": agent_key, "command": command, "allowed": allowed, "reason": reason}
+
+
+# ── DEMO threat-injection controls (presenter tooling) ───────────────────────
+# These endpoints plant threats so the EXISTING scanners catch them on the
+# Agent Governance page. They are explicit demo tooling, not real governance.
+@router.post("/demo/mcp-tool")
+def demo_add_mcp_tool() -> dict:
+    """Inject a poisoned MCP tool, then re-scan + re-vet (block + revoke)."""
+    return demo_controls.add_risky_mcp_tool()
+
+
+@router.post("/demo/shadow-agent")
+def demo_add_shadow_agent() -> dict:
+    """Inject a rogue ungoverned agent, then re-scan discovery (shadow)."""
+    return demo_controls.add_harmful_agent()
+
+
+@router.post("/demo/tamper-audit")
+def demo_tamper_audit() -> dict:
+    """Corrupt one audit entry so integrity verification fails."""
+    return demo_controls.tamper_audit()
+
+
+@router.post("/demo/reset")
+def demo_reset() -> dict:
+    """Clear injected threats + repair the audit chain to the clean baseline."""
+    return demo_controls.reset()

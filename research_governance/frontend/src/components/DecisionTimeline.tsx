@@ -3,6 +3,12 @@ import { api } from "../lib/api";
 import { connectDecisions } from "../lib/ws";
 import type { Decision } from "../lib/types";
 
+const TimelineIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+  </svg>
+);
+
 export default function DecisionTimeline() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [live, setLive] = useState(false);
@@ -29,8 +35,9 @@ export default function DecisionTimeline() {
 
   return (
     <div className="panel">
-      <div className="row spread" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>
+      <div className="panel-head">
+        <h2 className="panel-title">
+          <span className="panel-ico"><TimelineIcon /></span>
           Decision timeline {live && <span className="live-dot" title="live" />}
         </h2>
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
@@ -61,14 +68,19 @@ export default function DecisionTimeline() {
                 <td>
                   <span className={`badge ${d.verdict}`}>{d.verdict}</span>
                 </td>
-                <td className="muted">{d.matched_rule ?? "—"}</td>
+                <td className="muted cell-truncate" title={d.matched_rule ?? undefined}>
+                  {d.matched_rule ?? "—"}
+                </td>
                 <td className="muted">{d.latency_ms != null ? `${d.latency_ms}ms` : "—"}</td>
               </tr>
             ))}
             {shown.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">
-                  No decisions yet. Run a cycle on the Desk page.
+                <td colSpan={6}>
+                  <div className="empty-state">
+                    <span className="empty-ico"><TimelineIcon /></span>
+                    <p>No decisions yet. Run a cycle on the Desk page.</p>
+                  </div>
                 </td>
               </tr>
             )}

@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { RagRetrieval } from "../lib/types";
 
+const BookIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 5a2 2 0 012-2h7v18H6a2 2 0 00-2 2V5z" /><path d="M13 3h5a2 2 0 012 2v16a2 2 0 00-2-2h-5" />
+  </svg>
+);
+
 export default function RagPanel() {
   const [items, setItems] = useState<RagRetrieval[]>([]);
 
@@ -16,9 +22,12 @@ export default function RagPanel() {
 
   return (
     <div className="panel">
-      <div className="row spread" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Annual-report RAG</h2>
-        <span className="muted" style={{ fontSize: 12 }}>
+      <div className="panel-head">
+        <h2 className="panel-title">
+          <span className="panel-ico"><BookIcon /></span>
+          Annual-report RAG
+        </h2>
+        <span className="panel-meta">
           {flaggedTotal} chunk(s) flagged for injection
         </span>
       </div>
@@ -60,7 +69,12 @@ export default function RagPanel() {
           ))}
           {items.length === 0 && (
             <tr>
-              <td colSpan={6} className="muted">No retrievals yet. Run a desk cycle.</td>
+              <td colSpan={6}>
+                <div className="empty-state">
+                  <span className="empty-ico"><BookIcon /></span>
+                  <p>No retrievals yet. Run a desk cycle.</p>
+                </div>
+              </td>
             </tr>
           )}
         </tbody>

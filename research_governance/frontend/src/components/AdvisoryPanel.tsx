@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { AdvisoryDecision } from "../lib/types";
 
+const ScaleIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3v18M7 21h10M5 7h14M12 7l-4 7a3 3 0 006 0zM12 7l4 7a3 3 0 01-6 0z" />
+  </svg>
+);
+
 export default function AdvisoryPanel() {
   const [items, setItems] = useState<AdvisoryDecision[]>([]);
 
@@ -17,9 +23,12 @@ export default function AdvisoryPanel() {
 
   return (
     <div className="panel">
-      <div className="row spread" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Advisory layer (non-deterministic)</h2>
-        <span className="muted" style={{ fontSize: 12 }}>
+      <div className="panel-head">
+        <h2 className="panel-title">
+          <span className="panel-ico"><ScaleIcon /></span>
+          Advisory layer (non-deterministic)
+        </h2>
+        <span className="panel-meta">
           {blocked} blocked · {flagged} flagged
         </span>
       </div>
@@ -53,14 +62,21 @@ export default function AdvisoryPanel() {
               <td className="muted">
                 {d.advisory_confidence != null ? `${Math.round(d.advisory_confidence * 100)}%` : "—"}
               </td>
-              <td className="muted">{d.advisory_reason}</td>
+              <td className="muted cell-wrap" title={d.advisory_reason ?? undefined}>
+                {d.advisory_reason}
+              </td>
             </tr>
           ))}
           {items.length === 0 && (
             <tr>
-              <td colSpan={5} className="muted">
-                No advisory flags yet. Try a large trade with negative sentiment (e.g. a watchlist
-                ticker) to trigger one.
+              <td colSpan={5}>
+                <div className="empty-state">
+                  <span className="empty-ico"><ScaleIcon /></span>
+                  <p>
+                    No advisory flags yet. Try a large trade with negative sentiment (e.g. a
+                    watchlist ticker) to trigger one.
+                  </p>
+                </div>
               </td>
             </tr>
           )}

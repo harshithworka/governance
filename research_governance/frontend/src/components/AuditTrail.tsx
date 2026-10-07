@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import type { AuditEntry } from "../lib/types";
 
+const LockIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="11" width="16" height="9" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" />
+  </svg>
+);
+
 export default function AuditTrail({ refreshKey }: { refreshKey: number }) {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [verify, setVerify] = useState<{ ok: boolean; error: string | null } | null>(null);
@@ -14,9 +20,12 @@ export default function AuditTrail({ refreshKey }: { refreshKey: number }) {
 
   return (
     <div className="panel">
-      <div className="row spread" style={{ marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Tamper-evident audit trail</h2>
-        <div className="row">
+      <div className="panel-head">
+        <h2 className="panel-title">
+          <span className="panel-ico"><LockIcon /></span>
+          Tamper-evident audit trail
+        </h2>
+        <div className="panel-head-actions">
           {verify && (
             <span className={`badge ${verify.ok ? "allow" : "deny"}`}>
               {verify.ok ? "chain verified ✓" : "FAILED"}
@@ -50,8 +59,11 @@ export default function AuditTrail({ refreshKey }: { refreshKey: number }) {
             ))}
             {entries.length === 0 && (
               <tr>
-                <td colSpan={4} className="muted">
-                  No audit entries yet.
+                <td colSpan={4}>
+                  <div className="empty-state">
+                    <span className="empty-ico"><LockIcon /></span>
+                    <p>No audit entries yet.</p>
+                  </div>
                 </td>
               </tr>
             )}
