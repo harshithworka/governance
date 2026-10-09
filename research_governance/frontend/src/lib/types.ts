@@ -208,3 +208,62 @@ export interface RunResult {
   rag: Record<string, unknown> | null;
   trace: Array<Record<string, unknown>>;
 }
+
+// ---------------------------------------------------------------------------
+// Real-time sequential pipeline (SSE) events emitted by /api/desk/run-stream.
+// ---------------------------------------------------------------------------
+export type JevSource = "live" | "live-fallback" | "unavailable" | "error";
+
+export interface PipelineAgentSpec {
+  index: number;
+  key: string;
+  name: string;
+}
+
+export type PipelineEvent =
+  | {
+      type: "WORKFLOW_STARTED";
+      run_id: string;
+      symbol: string;
+      query: string;
+      agents: PipelineAgentSpec[];
+    }
+  | { type: "AGENT_STARTED"; index: number; key: string; name: string }
+  | {
+      type: "AGENT_COMPLETED";
+      index: number;
+      key: string;
+      name: string;
+      output: string;
+      output_data?: Record<string, unknown>;
+      source?: string | null;
+    }
+  | { type: "JEV_STARTED"; index: number; key: string; name: string }
+  | {
+      type: "JEV_COMPLETED";
+      index: number;
+      key: string;
+      name: string;
+      score: number | null;
+      safe: boolean | null;
+      reason: string;
+      source: JevSource;
+      model: string;
+    }
+  | {
+      type: "AGENT_BLOCKED";
+      index: number;
+      key: string;
+      name: string;
+      reason: string;
+      approval_id?: string | null;
+    }
+  | {
+      type: "WORKFLOW_BLOCKED";
+      blocked_by: string;
+      stage: "jev" | "policy" | "approval" | "error";
+      run_id?: string;
+      reason?: string;
+      approval_id?: string | null;
+    }
+  | { type: "WORKFLOW_COMPLETED"; run_id: string; status: string };
