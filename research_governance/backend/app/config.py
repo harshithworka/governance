@@ -89,6 +89,25 @@ class Settings:
         default_factory=lambda: os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
     )
     tavily_api_key: str = field(default_factory=lambda: os.getenv("TAVILY_API_KEY", ""))
+
+    # JEV — per-agent output safety judge (OpenRouter, OpenAI-compatible).
+    jev_api_key: str = field(default_factory=lambda: os.getenv("JEV_API_KEY", ""))
+    # Jev is a TypeSafe "System One" decision model on OpenRouter, called via the
+    # Decisions API (not chat completions). ~typesafe/jev-latest tracks newest.
+    jev_model: str = field(
+        default_factory=lambda: os.getenv("JEV_MODEL", "typesafe/jev-1.13")
+    )
+    # Groq is the JEV fallback when JEV_API_KEY (OpenRouter) is unset. It uses a
+    # SECOND Groq key (env GROQ_MODEL_2 — a dedicated key, kept separate from the
+    # Strategy agent's GROQ_API_KEY so JEV has its own quota) and a small, fast
+    # judge model. Scored via Groq's OpenAI-compatible REST endpoint.
+    groq_jev_api_key: str = field(
+        default_factory=lambda: os.getenv("GROQ_MODEL_2", "")
+    )
+    groq_jev_model: str = field(
+        default_factory=lambda: os.getenv("GROQ_JEV_MODEL", "openai/gpt-oss-20b")
+    )
+
     finnhub_api_key: str = field(default_factory=lambda: os.getenv("FINNHUB_API_KEY", ""))
     alphavantage_api_key: str = field(
         default_factory=lambda: os.getenv("ALPHAVANTAGE_API_KEY", "")
@@ -122,6 +141,10 @@ class Settings:
     @property
     def has_research(self) -> bool:
         return bool(self.tavily_api_key)
+
+    @property
+    def has_jev(self) -> bool:
+        return bool(self.jev_api_key)
 
     @property
     def has_market_data(self) -> bool:

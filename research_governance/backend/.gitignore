@@ -1,4 +1,6 @@
 .env
+# ...but DO track the example template (placeholders only, no secrets).
+!.env.example
 *.db
 *.db-journal
 *.db-shm
