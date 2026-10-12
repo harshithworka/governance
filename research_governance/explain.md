@@ -36,6 +36,13 @@
 18. [How to extend it](#18-how-to-extend-it)
 19. [Honest limitations](#19-honest-limitations)
 20. [Glossary](#20-glossary)
+21. [Complete codebase reading order (every file)](#21-complete-codebase-reading-order-every-file)
+
+> **How to use this doc to learn the code:** each section below ends with a
+> **📖 Files to read** box listing the exact files for that topic, in order. If
+> you want one single front-to-back path through the *entire* codebase, jump to
+> **§21 — Complete codebase reading order** and follow it top to bottom; the
+> per-section boxes then serve as the "why" for each file you open.
 
 ---
 
@@ -266,6 +273,12 @@ The backend is a standard FastAPI app. The lifecycle:
 `governance/` = the rules engine, `integrations/` = the outside world,
 `store/` = the database.
 
+> **📖 Files to read for this section, in order:**
+> 1. `backend/app/config.py` — the AGT import bootstrap + `Settings` dataclass. Read this first; it is *why* every `import agentmesh` / `import agent_os` works.
+> 2. `backend/app/main.py` — the FastAPI app factory, CORS, router registration, startup hooks, the WebSocket (`/ws/decisions`), and the SSE fan-out wiring.
+> 3. `backend/app/store/db.py` — skim the schema near the top; it names every table the dashboard reads. You'll return here often.
+> 4. `backend/app/__init__.py` — trivial, just marks the package.
+
 ---
 
 ## 7. The 6 agents — what each does and how
@@ -293,6 +306,14 @@ The agents are **plain Python functions** called "nodes," defined in
 | 6 | **Governance / Discovery** | Background oversight — hunts "shadow" agents, aggregates data | — | it *is* the governance plane; runs the shadow‑discovery scan |
 
 Only agents 1–5 execute in the pipeline. Agent 6 is monitor‑only.
+
+> **📖 Files to read for this section, in order:**
+> 1. `backend/app/graph/state.py` — `DeskState`, the dict threaded through all agents. Small; read it first so the node code makes sense.
+> 2. `backend/app/graph/desk_graph.py` — the 5 agent **node functions** (`research_node` … `execution_node`) and `run_desk()`. This is where each agent calls the gate, the ring check, the breaker, then does its work. The single most important agent file.
+> 3. `backend/app/governance/identities.py` — the 6 agents, their rings/capabilities, and their Ed25519 DIDs (`AgentIdentity.create`).
+> 4. `backend/app/integrations/providers.py` — the real provider calls each agent makes: `research_headlines` (Tavily), `market_quote` (Finnhub), `llm_summarize` (Groq→Gemini), with mock fallbacks.
+> 5. `backend/app/integrations/rag.py` — the Market-Data agent's second tool: the NSE annual-report RAG pipeline (fetch → pypdf → chunk → embed → ChromaDB → retrieve).
+> 6. `backend/app/mcp/catalog.py` — the MCP tool definitions the Market-Data agent chooses from (including the demo-malicious ones).
 
 **Each agent node also runs through two more gates (phases 2–3):**
 - A **ring check** (`rings.check_resource(...)`) — may this agent touch the
@@ -331,6 +352,14 @@ The return value is a `Verdict` object the agent node reads: `allowed`,
 `verdict`, `requires_approval`, `reason`, etc. The node uses that to decide
 whether to proceed, stop, or route to human approval.
 
+> **📖 Files to read for this section, in order (this is the heart of the project):**
+> 1. `backend/app/governance/gate.py` — **read `GovernanceGate.evaluate()` slowly.** Everything (policy, advisory, audit, trust, broadcast) ties together here.
+> 2. `backend/app/policies/execution.yaml` — the richest policy (numeric + compound conditions + `require_approval` + rate limit). Read this first of the policies.
+> 3. `backend/app/policies/risk.yaml` — numeric limit + instrument blocklist (the clearest deterministic deny).
+> 4. `backend/app/policies/research.yaml`, `market_data.yaml`, `strategy.yaml` — the simpler per-agent policies.
+> 5. `backend/app/governance/advisory.py` — the probabilistic trade-risk classifier that runs *after* a deterministic allow and can only tighten it.
+> 6. (AGT library, optional deep dive) `agent-governance-python/agent-mesh/src/agentmesh/governance/policy.py` — the `PolicyEngine` condition parser + conflict resolution, if you want to see how a YAML `condition` string is actually evaluated.
+
 ---
 
 ## 9. JEV — the per‑agent safety judge
@@ -364,6 +393,11 @@ shown honestly). **Only a real live score < 0.5 blocks a run.**
 > Design note: the agent's output is summarized into readable text in
 > `desk_stream.py` (`_summarize`) and *that* text is what JEV judges — so the
 > safety check is on the actual thing the agent produced.
+
+> **📖 Files to read for this section, in order:**
+> 1. `backend/app/governance/jev.py` — the whole JEV layer: `evaluate()` (resolution order), `_evaluate_openrouter()` (the **Jev Decisions API** call with a `noul` question), `_evaluate_groq()` (the chat-style fallback), and the threshold logic.
+> 2. `backend/app/config.py` — re-read the JEV settings block (`jev_api_key`, `jev_model`, `groq_jev_api_key`, `groq_jev_model`, `has_jev`).
+> 3. `backend/app/graph/desk_stream.py` — see `_summarize()` (builds the text JEV judges) and where `jev.evaluate()` is called between agents.
 
 ---
 
@@ -407,6 +441,12 @@ and an `approval_id`, then ends. The Desk page then **polls** the approvals
 endpoint; when a human approves/rejects it on the Governance page, the Desk page
 updates the Execution node accordingly. (This is why the pipeline can "resume"
 visually after you approve.)
+
+> **📖 Files to read for this section, in order:**
+> 1. `backend/app/graph/desk_stream.py` — `run_desk_events()`: the generator that runs agents one at a time and `yield`s the ordered events. Read the event schema in its docstring.
+> 2. `backend/app/api/routes_desk.py` — the `run_stream` route: how the blocking generator is pumped onto an `asyncio.Queue` in a worker thread and streamed as SSE (`text/event-stream`). Also `intake` and `run` routes here.
+> 3. `backend/app/api/routes_approvals.py` — the human-approval queue + `resume_after_approval`.
+> 4. `backend/app/api/__init__.py` — trivial package marker.
 
 ---
 
@@ -512,6 +552,14 @@ JSON** the backend returns (`Agent`, `Decision`, `AuditEntry`, `PipelineEvent`,
 catches mismatches, and a developer reading `types.ts` can see every data shape
 the frontend expects.
 
+> **📖 Files to read for this section, in order (the frontend↔backend glue):**
+> 1. `frontend/src/lib/types.ts` — every data shape the frontend expects. Read first; the rest references these types.
+> 2. `frontend/src/lib/api.ts` — the `get`/`post` helpers (native `fetch`) and the `api` object: one typed function per REST endpoint. This is the entire REST contract.
+> 3. `frontend/src/lib/ws.ts` — `connectDecisions()`: the WebSocket helper for the live decision feed (with auto-reconnect).
+> 4. `frontend/src/lib/pipeline.ts` — `connectPipeline()`: the SSE (`EventSource`) helper for the real-time agent pipeline.
+> 5. `frontend/src/main.tsx` — the React entry point (mounts `<App/>`).
+> 6. `frontend/src/vite-env.d.ts` — Vite type shim (trivial).
+
 ---
 
 ## 12. The frontend, page by page
@@ -558,6 +606,25 @@ function (and some refresh on a timer). Panels:
 
 A summary of each agent's active rules, plus the **Demo controls** panel (§15).
 
+> **📖 Files to read for this section, in order:**
+> 1. `frontend/src/App.tsx` — the shell: sidebar, nav, backend-mode badge, and the `react-router-dom` routes. Start here.
+> 2. `frontend/src/styles.css` — the entire theme (CSS variables + every class). Skim it so the components' class names make sense.
+> 3. `frontend/src/pages/Desk.tsx` — the main page: query → intake → the live SSE pipeline (reducer + the two-column UI + persistence + approval polling). The biggest frontend file; read it carefully.
+> 4. `frontend/src/pages/AgentGovernance.tsx` — composes all the dashboard panels + the 4 KPI cards.
+> 5. `frontend/src/pages/Policies.tsx` — the rules table + demo-controls buttons.
+> 6. Then the panels in `frontend/src/components/`, each paired with the backend endpoint it reads (via `api.*`):
+>    - `AgentRoster.tsx` → `api.agents` / `api.kill` / `api.reactivate`
+>    - `DecisionTimeline.tsx` → `api.decisions` + the WebSocket (`ws.ts`)
+>    - `ApprovalsQueue.tsx` → `api.approvals` / `api.resolveApproval`
+>    - `AuditTrail.tsx` → `api.audit` / `api.verifyAudit`
+>    - `SecurityPanel.tsx` → `api.mcpScans` / `api.mcpRescan`
+>    - `RuntimePanel.tsx` → `api.rings` / `api.breakers` / `api.runtimeEvents` / `api.egressTest`
+>    - `AdvisoryPanel.tsx` → `api.advisory`
+>    - `ShadowDiscoveryPanel.tsx` → `api.shadows` / `api.discoveryScan`
+>    - `MarketplacePanel.tsx` → `api.marketplace` / `api.marketplaceVet`
+>    - `IntakePanel.tsx` → `api.intakeEventsList`
+>    - `RagPanel.tsx` → `api.ragRetrievals`
+
 ---
 
 ## 13. The database
@@ -583,6 +650,10 @@ Key tables:
 > **The DB resets on every startup** (`db.reset_db()` is called in
 > `gate.setup()`), because agent identities are minted fresh per process. The
 > dashboard always reflects the current run.
+
+> **📖 Files to read for this section:**
+> 1. `backend/app/store/db.py` — the whole store: the `_SCHEMA` string (every table), plus one pair of read/write functions per record type. There is no ORM; it's plain SQLite via `sqlite3`.
+> 2. `backend/app/store/__init__.py` — trivial package marker.
 
 ---
 
@@ -634,6 +705,17 @@ Backend: `governance/demo_controls.py` + the `/api/governance/demo/*` routes.
 The injected items flow into the *same* real scan/vet/verify code paths — so the
 governance genuinely catches them.
 
+> **📖 Files to read for the demo controls + the governance modules they exercise, in order:**
+> 1. `backend/app/governance/demo_controls.py` — plants a poisoned tool / rogue agent / tampers the audit chain, and resets. Shows how each threat is injected into the real scan paths.
+> 2. `backend/app/governance/mcp_security.py` — `MCPSecurityScanner` wrapper: `scan_catalog()` + `is_tool_allowed()` (what blocks the poisoned tool).
+> 3. `backend/app/governance/marketplace.py` — vets each tool as a signed plugin; forces a scan-blocked tool to `revoked`.
+> 4. `backend/app/governance/discovery.py` — shadow-AI discovery: observes agents, reconciles against the registry, risk-scores shadows.
+> 5. `backend/app/governance/rings.py` — execution rings + command denylist (`check_resource`, `check_command`).
+> 6. `backend/app/governance/killswitch.py` — terminate an agent (records a `KillResult`).
+> 7. `backend/app/governance/reliability.py` — per-agent circuit breakers + SLO counters.
+> 8. `backend/app/governance/intake.py` — the governed intake: PII redaction + injection scan + prompt-defense grade + NSE symbol resolution.
+> 9. `backend/app/api/routes_governance.py` — every dashboard endpoint, including the `/demo/*` routes, in one file.
+
 ---
 
 ## 16. Configuration & environment variables
@@ -650,8 +732,8 @@ turn on live providers.
 | `TAVILY_API_KEY` | Live news/research (Research agent) |
 | `FINNHUB_API_KEY` | Live market quotes (Market‑Data agent) |
 | `ALPHAVANTAGE_API_KEY` | Fallback market data |
-| `JEV_API_KEY` | JEV via **OpenRouter** (primary judge) |
-| `JEV_MODEL` | OpenRouter judge model (default `openai/gpt-4o-mini`) |
+| `JEV_API_KEY` | JEV via **OpenRouter** Decisions API (primary judge) |
+| `JEV_MODEL` | OpenRouter judge model (default `typesafe/jev-1.13`, the TypeSafe Jev decision model) |
 | `GROQ_MODEL_2` | **Second Groq key** → JEV fallback when `JEV_API_KEY` is unset |
 | `GROQ_JEV_MODEL` | Groq fallback judge model (default `openai/gpt-oss-20b`) |
 | `AGT_AUDIT_SECRET_KEY` | Enables a persistent, signed audit sink |
@@ -768,3 +850,105 @@ judge after every agent**. The React frontend talks to the FastAPI backend over
 **REST** (queries/actions), a **WebSocket** (live decisions), and **SSE** (the
 real‑time agent pipeline). The one file to understand above all others is
 `backend/app/governance/gate.py`.
+
+---
+
+## 21. Complete codebase reading order (every file)
+
+This is the single front‑to‑back path to read **every source file** in the
+project and understand how it fits. Open each file in this order; the §
+reference points back to the section that explains *why* that file matters.
+Config, cache, and generated files (`__pycache__`, `_rag_cache`, `.env`,
+`node_modules`, `dist`, `tsconfig.tsbuildinfo`) are intentionally skipped.
+
+### Phase A — Orientation (read before any code)
+1. `research_governance/README.md` — quick start + feature summary.
+2. `research_governance/explain.md` — this document.
+3. `research_governance/plan.md` — the original design doc (historical context).
+
+### Phase B — Backend foundations (§6, §13)
+4. `backend/requirements.txt` — the Python dependencies.
+5. `backend/.env.example` — every environment variable, with placeholders.
+6. `backend/app/config.py` — AGT import bootstrap + `Settings`. **Read first.**
+7. `backend/app/store/db.py` — the SQLite schema + all read/write functions.
+8. `backend/app/main.py` — FastAPI app, CORS, startup, WebSocket + SSE wiring.
+
+### Phase C — Identities, policies, the gate (§7, §8)
+9.  `backend/app/governance/identities.py` — the 6 agents + Ed25519 DIDs.
+10. `backend/app/policies/execution.yaml` — the richest policy.
+11. `backend/app/policies/risk.yaml` — numeric limit + instrument blocklist.
+12. `backend/app/policies/research.yaml`
+13. `backend/app/policies/market_data.yaml`
+14. `backend/app/policies/strategy.yaml`
+15. `backend/app/governance/gate.py` — **the heart.** Read `evaluate()` slowly.
+16. `backend/app/governance/advisory.py` — the probabilistic advisory classifier.
+
+### Phase D — The agents and what they call (§7)
+17. `backend/app/graph/state.py` — `DeskState`.
+18. `backend/app/integrations/providers.py` — Tavily / Finnhub / Groq+Gemini.
+19. `backend/app/integrations/rag.py` — the annual‑report RAG pipeline.
+20. `backend/app/mcp/catalog.py` — MCP tool definitions (incl. demo‑malicious).
+21. `backend/app/graph/desk_graph.py` — the 5 agent nodes + `run_desk()`.
+
+### Phase E — Governance phase modules (§15)
+22. `backend/app/governance/mcp_security.py` — MCP tool scanner.
+23. `backend/app/governance/marketplace.py` — plugin vetting + signing.
+24. `backend/app/governance/discovery.py` — shadow‑AI discovery.
+25. `backend/app/governance/rings.py` — execution rings + command denylist.
+26. `backend/app/governance/killswitch.py` — agent termination.
+27. `backend/app/governance/reliability.py` — circuit breakers + SLO.
+28. `backend/app/governance/intake.py` — PII redaction + injection + defense grade + symbol.
+29. `backend/app/governance/jev.py` — the per‑agent JEV safety judge (§9).
+30. `backend/app/governance/demo_controls.py` — presenter threat‑injection + reset.
+
+### Phase F — The streaming pipeline + the HTTP API (§10)
+31. `backend/app/graph/desk_stream.py` — the ordered‑event generator (SSE core).
+32. `backend/app/api/routes_desk.py` — intake, run, and the SSE `run-stream` route.
+33. `backend/app/api/routes_governance.py` — all dashboard + demo endpoints.
+34. `backend/app/api/routes_approvals.py` — the human‑approval queue.
+
+### Phase G — Frontend glue (§11)
+35. `frontend/package.json` — scripts + dependencies.
+36. `frontend/vite.config.ts` — the Vite dev server config.
+37. `frontend/src/main.tsx` — React entry point.
+38. `frontend/src/lib/types.ts` — every data shape (mirrors backend JSON).
+39. `frontend/src/lib/api.ts` — the REST client (`fetch`).
+40. `frontend/src/lib/ws.ts` — the WebSocket helper (live decisions).
+41. `frontend/src/lib/pipeline.ts` — the SSE helper (agent pipeline).
+
+### Phase H — Frontend UI (§12)
+42. `frontend/src/styles.css` — the whole theme (skim).
+43. `frontend/src/App.tsx` — the shell: sidebar + routes.
+44. `frontend/src/pages/Desk.tsx` — the main page (query + live pipeline).
+45. `frontend/src/pages/AgentGovernance.tsx` — the dashboard composition.
+46. `frontend/src/pages/Policies.tsx` — rules + demo controls.
+47. `frontend/src/components/AgentRoster.tsx`
+48. `frontend/src/components/DecisionTimeline.tsx`
+49. `frontend/src/components/ApprovalsQueue.tsx`
+50. `frontend/src/components/AuditTrail.tsx`
+51. `frontend/src/components/SecurityPanel.tsx`
+52. `frontend/src/components/RuntimePanel.tsx`
+53. `frontend/src/components/AdvisoryPanel.tsx`
+54. `frontend/src/components/ShadowDiscoveryPanel.tsx`
+55. `frontend/src/components/MarketplacePanel.tsx`
+56. `frontend/src/components/IntakePanel.tsx`
+57. `frontend/src/components/RagPanel.tsx`
+
+### Phase I — (Optional) The AGT library internals
+Only if you want to see *inside* the toolkit the POC imports. These live under
+`agent-governance-python/` and are **not** part of the POC itself:
+- `agent-mesh/src/agentmesh/governance/policy.py` — the `PolicyEngine` + condition parser.
+- `agent-mesh/src/agentmesh/reward/engine.py` + `reward/scoring.py` — trust scoring.
+- `agent-mesh/src/agentmesh/governance/audit.py` — the hash‑chained audit log.
+- `agent-os/src/agent_os/prompt_injection.py` — the injection detector (pattern‑based).
+- `agent-compliance/src/agent_compliance/prompt_defense.py` — the 17‑vector defense grader.
+- `agent-os/src/agent_os/mcp_security.py` — the MCP scanner.
+- `agent-sre/src/agent_sre/cascade/circuit_breaker.py` — the breaker.
+- `agent-hypervisor/src/hypervisor/rings/enforcer.py` + `security/kill_switch.py` — rings + kill switch.
+- `agent-discovery/` and `agent-marketplace/` — discovery + marketplace.
+
+### Suggested checkpoints
+- **After Phase C** you understand the deterministic guarantee (the gate + policies).
+- **After Phase D** you can trace one full agent run end to end.
+- **After Phase F** you understand how a run streams to the browser.
+- **After Phase H** you can follow any dashboard number back to its backend endpoint.

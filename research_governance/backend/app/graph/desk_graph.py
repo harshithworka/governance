@@ -29,19 +29,10 @@ from app.governance.mcp_security import mcp_security
 from app.governance.reliability import reliability
 from app.governance.rings import rings
 from app.graph.state import DeskState
+from app.governance.rag_governor import governed_retrieve
 from app.integrations.providers import llm_summarize, market_quote, research_headlines
-from app.integrations.rag import rag_store
 from app.mcp.catalog import FALLBACK_TOOL, PREFERRED_TOOL
 from app.store import db
-
-# RAG retrieved chunks are untrusted content (classic indirect-injection vector),
-# so each is screened before it can reach the strategy LLM.
-import warnings as _warnings
-with _warnings.catch_warnings():
-    _warnings.simplefilter("ignore")
-    from agent_os.prompt_injection import PromptInjectionDetector, ThreatLevel
-
-_rag_injection_detector = PromptInjectionDetector()
 
 
 def _trace(state: DeskState, step: str, detail: dict[str, Any]) -> None:
@@ -152,51 +143,40 @@ def market_data_node(state: DeskState) -> DeskState:
         return state
 
     query = state.get("query") or f"{symbol} revenue growth, risks, and outlook"
-    rag_res = rag_store.retrieve(symbol, query)
-
-    safe_chunks: list[str] = []
-    flagged = 0
-    for chunk in rag_res.chunks:
-        det = _rag_injection_detector.detect(chunk)
-        if det.is_injection and det.threat_level in (
-            ThreatLevel.MEDIUM, ThreatLevel.HIGH, ThreatLevel.CRITICAL
-        ):
-            flagged += 1
-            db.add_runtime_event(
-                kind="rag_injection_blocked",
-                agent_did=v.agent_did, agent_name=v.agent_name,
-                detail=f"Injected content in retrieved chunk: {det.explanation}",
-                data={"symbol": symbol, "threat": det.threat_level.value},
-            )
-            continue
-        safe_chunks.append(chunk)
+    # AGT RAGGovernor runs the full pipeline (collection ACL -> rate limit ->
+    # per-chunk PII+injection content scan -> audit) and returns ONLY the
+    # chunks that passed. This REPLACES the old hand-rolled per-chunk screening.
+    gov = governed_retrieve(symbol, query)
+    safe_chunks = gov["chunks"]
+    flagged = gov["blocked_count"]
+    chunks_total = len(safe_chunks) + flagged
 
     state["rag"] = {
-        "available": rag_res.available and bool(safe_chunks),
+        "available": gov["available"],
         "symbol": symbol,
-        "source": rag_res.source,
-        "report_url": rag_res.report_url,
+        "source": gov["source"],
+        "report_url": gov["report_url"],
         "chunks": safe_chunks,
-        "chunks_total": len(rag_res.chunks),
+        "chunks_total": chunks_total,
         "chunks_flagged": flagged,
-        "reason": rag_res.reason,
+        "reason": gov["reason"],
         "mcp_tool": rag_tool,
     }
     # Persist the retrieval for the RAG panel.
     db.add_rag_retrieval(
-        run_id=state["run_id"], symbol=symbol, source=rag_res.source,
-        report_url=rag_res.report_url, chunks_total=len(rag_res.chunks),
+        run_id=state["run_id"], symbol=symbol, source=gov["source"],
+        report_url=gov["report_url"], chunks_total=chunks_total,
         chunks_used=len(safe_chunks), chunks_flagged=flagged,
-        available=state["rag"]["available"], reason=rag_res.reason,
+        available=state["rag"]["available"], reason=gov["reason"],
     )
     # Audit the retrieval (what report, how many chunks, how many flagged).
     gate.evaluate(
         "market_data",
         {"type": "read_market_data", "symbol": symbol, "tool": "annual_report_rag",
          "chunks": len(safe_chunks), "flagged": flagged},
-        run_id=state["run_id"], resource=rag_res.report_url or "nse-annual-report",
+        run_id=state["run_id"], resource=gov["report_url"] or "nse-annual-report",
     )
-    _trace(state, "market_data", {"rag_source": rag_res.source,
+    _trace(state, "market_data", {"rag_source": gov["source"],
                                   "rag_chunks": len(safe_chunks),
                                   "rag_flagged": flagged,
                                   "rag_available": state["rag"]["available"]})

@@ -177,6 +177,11 @@ export interface IntakeResult {
   defense_total?: number;
   defense_missing?: string[];
   defense_top_findings?: { vector_id: string; name: string; owasp: string; severity: string }[];
+  // Semantic (embedding) prompt-injection signal — independent of the regex scan.
+  semantic_checked?: boolean;
+  semantic_margin?: number | null;
+  semantic_is_attack?: boolean | null;
+  semantic_threshold?: number;
 }
 
 export interface IntakeEvent extends IntakeResult {

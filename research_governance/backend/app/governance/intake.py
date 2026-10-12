@@ -32,6 +32,7 @@ from agent_compliance.prompt_defense import PromptDefenseEvaluator
 from agent_os.credential_redactor import CredentialRedactor
 from agent_os.prompt_injection import PromptInjectionDetector, ThreatLevel
 
+from app.governance.injection_embedding import evaluate_semantic
 from app.integrations.providers import llm_summarize
 
 # Indian PII patterns AGT's redactor does not ship. Masked in addition to the
@@ -69,6 +70,13 @@ class IntakeResult:
     defense_total: int = 0
     defense_missing: list[str] = field(default_factory=list)
     defense_top_findings: list[dict] = field(default_factory=list)
+    # Semantic (embedding) prompt-injection signal — an independent SECOND
+    # detector OR-combined with the regex one (never averaged). When the
+    # embedding backend is unavailable it simply never blocks.
+    semantic_checked: bool = False
+    semantic_margin: float | None = None
+    semantic_is_attack: bool | None = None
+    semantic_threshold: float = 0.0
 
 
 class Intake:
@@ -229,21 +237,45 @@ class Intake:
             # Informational only — never fed raw PII, never gates the run.
             defense = self._defense_grade(clean)
 
+            # Detector 1 (regex): AGT PromptInjectionDetector on the raw query.
             det = self._scan_injection(query)
             threat = getattr(det.threat_level, "value", "none")
-            blocked = det.is_injection and det.threat_level in _BLOCK_LEVELS
-            if blocked:
+            regex_blocked = det.is_injection and det.threat_level in _BLOCK_LEVELS
+
+            # Detector 2 (semantic): AGT embedding margin on the SAME raw query.
+            # Independent of the regex — OR-combined below, never averaged.
+            sem = evaluate_semantic(query)
+            semantic_fields = {
+                "semantic_checked": bool(sem["available"]),
+                "semantic_margin": sem["margin"],
+                "semantic_is_attack": sem["is_attack"],
+                "semantic_threshold": sem["threshold"],
+            }
+            semantic_blocked = bool(sem["available"]) and bool(sem["is_attack"])
+
+            # BLOCK if EITHER detector fires.
+            if regex_blocked or semantic_blocked:
+                if regex_blocked:
+                    block_reason = (
+                        f"Prompt injection detected ({threat}): {det.explanation}"
+                    )
+                else:
+                    block_reason = (
+                        "Semantic prompt-injection detected "
+                        f"(embedding margin {sem['margin']:.2f} >= {sem['threshold']})"
+                    )
                 return IntakeResult(
                     ok=False,
                     original_len=len(query),
                     clean_query=clean,
                     redactions=redactions,
-                    injection_detected=True,
+                    injection_detected=det.is_injection,
                     injection_threat=threat,
                     injection_reason=det.explanation,
                     injection_patterns=list(det.matched_patterns),
-                    block_reason=f"Prompt injection detected ({threat}): {det.explanation}",
+                    block_reason=block_reason,
                     **defense,
+                    **semantic_fields,
                 )
 
             company = self._llm_company(clean)
@@ -260,6 +292,7 @@ class Intake:
                 company=company,
                 symbol=symbol,
                 **defense,
+                **semantic_fields,
             )
 
 
