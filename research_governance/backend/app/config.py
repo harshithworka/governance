@@ -35,6 +35,7 @@ _PY_ROOT = REPO_ROOT / "agent-governance-python"
 _AGT_SRC_DIRS = [
     _PY_ROOT / "agent-mesh" / "src",
     _PY_ROOT / "agent-os" / "src",
+    _PY_ROOT / "agent-rag-governance" / "src",
     _PY_ROOT / "agent-compliance" / "src",
     _PY_ROOT / "agent-hypervisor" / "src",
     _PY_ROOT / "agent-sre" / "src",

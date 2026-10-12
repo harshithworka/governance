@@ -192,6 +192,24 @@ class RagStore:
         )
         return True, "live", url
 
+    def _query_chunks(self, symbol: str, query: str) -> list[str]:
+        """Embed *query* and return the top-k matching chunks for *symbol*.
+
+        Assumes the collection is already indexed. Returns [] on failure so
+        callers (RagResult + the governed adapter) can degrade gracefully.
+        """
+        q_emb = _embed([query])
+        if q_emb is None:
+            return []
+        coll = self._chroma().get_collection(self._collection_name(symbol))
+        res = coll.query(query_embeddings=q_emb, n_results=_TOP_K)
+        return (res.get("documents") or [[]])[0]
+
+    def ensure_indexed(self, symbol: str) -> tuple[bool, str, str | None]:
+        """Public wrapper so the governed retriever can trigger indexing."""
+        with self._lock:
+            return self._ensure_indexed(symbol)
+
     def retrieve(self, symbol: str, query: str) -> RagResult:
         with self._lock:
             try:
@@ -204,16 +222,38 @@ class RagStore:
                                  report_url=url,
                                  reason="No annual report available (NSE blocked, "
                                         "parse failed, or embeddings unavailable)")
-            q_emb = _embed([query])
-            if q_emb is None:
+            docs = self._query_chunks(symbol, query)
+            if docs is None:
                 return RagResult(available=False, symbol=symbol, source=source,
                                  report_url=url, reason="query embedding failed")
-            coll = self._chroma().get_collection(self._collection_name(symbol))
-            res = coll.query(query_embeddings=q_emb, n_results=_TOP_K)
-            docs = (res.get("documents") or [[]])[0]
             return RagResult(available=bool(docs), symbol=symbol, source=source,
                              report_url=url, chunks=docs,
                              reason="retrieved" if docs else "no matching chunks")
+
+
+@dataclass
+class Doc:
+    """Minimal LangChain-style document: the governor reads ``.page_content``."""
+
+    page_content: str
+
+
+class ChromaRetrieverAdapter:
+    """A ``.invoke(query) -> list[Doc]`` retriever over an INDEXED symbol
+    collection, for wrapping with ``RAGGovernor``.
+
+    Reuses :meth:`RagStore._query_chunks` — does NOT reimplement retrieval.
+    Indexing is handled separately (via :meth:`RagStore.ensure_indexed`) so
+    the adapter only runs the embed + collection.query step on each invoke.
+    """
+
+    def __init__(self, store: "RagStore", symbol: str) -> None:
+        self._store = store
+        self._symbol = symbol
+
+    def invoke(self, query: str) -> list[Doc]:
+        chunks = self._store._query_chunks(self._symbol, query)
+        return [Doc(page_content=c) for c in chunks]
 
 
 rag_store = RagStore()

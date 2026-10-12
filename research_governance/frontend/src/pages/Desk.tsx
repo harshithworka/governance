@@ -448,6 +448,18 @@ export default function Desk() {
                   {intake.injection_detected ? `blocked (${intake.injection_threat})` : "clean"}
                 </span>
               </div>
+              <div className="row spread" style={{ marginBottom: 10 }}>
+                <span>Semantic scan</span>
+                {intake.semantic_checked ? (
+                  <span className={`badge ${intake.semantic_is_attack ? "deny" : "allow"}`}>
+                    {intake.semantic_is_attack ? "blocked" : "clean"} · margin{" "}
+                    {(intake.semantic_margin ?? 0).toFixed(2)} (thr{" "}
+                    {(intake.semantic_threshold ?? 0).toFixed(2)})
+                  </span>
+                ) : (
+                  <span className="muted">embedding unavailable</span>
+                )}
+              </div>
               {!intake.ok && (
                 <p style={{ color: "var(--deny)" }}>
                   ⛔ {intake.block_reason}

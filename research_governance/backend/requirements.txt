@@ -22,5 +22,9 @@ pypdf>=6.0,<7.0
 pandas>=2.0
 requests>=2.31
 
+# Semantic prompt-injection: local ONNX embedder for agent_os.prompt_injection_embedding
+# (AGT-compatible BAAI/bge-small-en-v1.5). Optional dep — intake degrades gracefully if absent.
+fastembed>=0.3,<1.0
+
 # AGT core is pulled from the local source tree via sys.path (see app/config.py).
 # If you prefer the published package instead, also:  pip install agent-governance-toolkit-core
